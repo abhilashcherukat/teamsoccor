@@ -9,47 +9,32 @@
     <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0'>
     <style type="text/css">
 
-    	.singletable{
-    		border-collapse: collapse;
-    	}
 
     </style>
     </head>
-
     <body>
 
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-$Players = json_decode('[
-{"id":1,"rank":5,"name":"AJ"},
-{"id":2,"rank":4,"name":"ROHITH"},
-{"id":3,"rank":4,"name":"TANZIL"},
-{"id":4,"rank":6,"name":"JUDO"},
-{"id":5,"rank":5,"name":"ALI"},
-{"id":6,"rank":5,"name":"KHATHAL"},
-{"id":7,"rank":5,"name":"ARUN"},
-{"id":8,"rank":3,"name":"SIJO"},
-{"id":9,"rank":5,"name":"NARESH"},
-{"id":10,"rank":3,"name":"SHASHANK"},
-{"id":11,"rank":4,"name":"ABHILASH"},
-{"id":12,"rank":4,"name":"SID"},
-{"id":13,"rank":2,"name":"DANESH"},
-{"id":14,"rank":4,"name":"SUBODH"},
-{"id":15,"rank":2,"name":"SUBBU"},
-{"id":16,"rank":3,"name":"UMESH"},
-{"id":17,"rank":3,"name":"JAICO"},
-{"id":18,"rank":2,"name":"CHIRANJEEVI"},
-{"id":19,"rank":3,"name":"RAVI"},
-{"id":20,"rank":2,"name":"PRADEEP"}
-]');
+$arr_player_pool = json_decode('[
+{"id":1,"rank":5,"name":"AJ"},{"id":2,"rank":4,"name":"ROHITH"},{"id":3,"rank":4,"name":"TANZIL"},
+{"id":4,"rank":6,"name":"JUDO"},{"id":5,"rank":5,"name":"ALI"},{"id":6,"rank":5,"name":"KHATHAL"},
+{"id":7,"rank":5,"name":"ARUN"},{"id":8,"rank":3,"name":"SIJO"},{"id":9,"rank":5,"name":"NARESH"},
+{"id":10,"rank":3,"name":"SHASHANK"},{"id":11,"rank":4,"name":"ABHILASH"},{"id":12,"rank":4,"name":"SID"},
+{"id":13,"rank":2,"name":"DANESH"},{"id":14,"rank":4,"name":"SUBODH"},{"id":15,"rank":2,"name":"SUBBU"},
+{"id":16,"rank":3,"name":"UMESH"},{"id":17,"rank":3,"name":"JAICO"},{"id":18,"rank":2,"name":"CHIRANJEEVI"},
+{"id":19,"rank":3,"name":"RAVI"},{"id":20,"rank":2,"name":"PRADEEP"}]');
 
 $Str = "<form action='" . $_SERVER['PHP_SELF'] . "' method='post'><table><tr>";
 $k = 0;
-foreach ($Players as $Player) {
+foreach ($arr_player_pool as $players) {
 	if ($k != 0 && $k % 4 == 0) {
 		$Str .= "</tr><tr>";
 	}
-	$Str .= "<td><input type='checkbox' name=play[] value='" . $Player->id . "'>" . $Player->name . "</td>";
+	$Str .= "<td><input type='checkbox' name=play[] value='" . $players->id . "'>" . $players->name . "</td>";
 	$k++;
 }
 $Str .= "</tr><tr><td><input type='submit' name='btnsubmit' value='generate'></td></tr></table></form>";
@@ -58,150 +43,164 @@ echo $Str;
 
 if (isset($_POST['btnsubmit'])) {
 
-	$Players = MakethePool($Players, $_POST['play']);
-	$Arr = array(array(), array());
-	$Strength = array();
-	$Swifter = 0;
-	$CurrentRank = 6;
-	echo "<pre>";
-	usort($Players, "cmp");
-	//print_r($Players);
+	$arr_selected_players = MakethePool($arr_player_pool, $_POST['play']);
+	$arr_selected_teams = array(array(), array());
+	$arr_selected_team_strength = array(0, 0);
+	$shifter = 0;
 
-	foreach ($Players as $Player) {
-		$Index = $Swifter % 2;
-		$Strength[$Index] += $Player->rank;
-		array_push($Arr[$Index], $Player);
+	usort($arr_selected_players, "cmp");
 
-		$Swifter++;
+	foreach ($arr_selected_players as $selected_player) {
+		$index = $shifter % 2;
+		$arr_selected_team_strength[$index] += $selected_player->rank;
+		array_push($arr_selected_teams[$index], $selected_player);
+
+		$shifter++;
 	}
 
-	printTeam($Arr, "Random Pick");
+	print_team($arr_selected_teams, "Random selection");
 
-	if (count($Players) % 2 == 1) {
-		echo "Hit";
-		array_push($Arr[1], $Arr[0][count($Arr[0]) - 1]);
-		unset($Arr[0][count($Arr[0]) - 1]);
+	if (count($arr_selected_players) % 2 == 1) {
+		array_push($arr_selected_teams[1], $arr_selected_teams[0][count($arr_selected_teams[0]) - 1]);
+		unset($arr_selected_teams[0][count($arr_selected_teams[0]) - 1]);
 	}
 
-	printTeam($Arr, "Adjusting");
+	$arr_selected_team_strength = StrengthCalculator($arr_selected_teams);
+	//CHECKING IF ADJUSTING THE PLAYER MADE THE TEAM OPTIMIZED
+	if (($arr_selected_team_strength[0] - $arr_selected_team_strength[1]) <= 1) {
+		print_team($arr_selected_teams, "Optimized");
+	} else {
 
-	optimize($Arr[0], $Arr[1], $Strength[0], $Strength[1]);
-	printTeam($Arr, "Optimized");
-	//print_r($Arr);
+		print_team($arr_selected_teams, "Adjusting");
+		optimize($arr_selected_teams);
+		print_team($arr_selected_teams, "Optimized");
+	}
 }
 
-function optimize($TeamA, $TeamB, $StrA, $StrB) {
+function optimize($arr_selected_teams) {
 
-	$StrDiff = abs($StrA - $StrB);
-	$PickA = $PickB = -1;
-	if ($StrDiff <= 1) {
-		$Array = array($TeamA, $TeamB);
-		$Strength = StrengthCalculator($TeamA, $TeamB);
+	$arr_team_strengths = StrengthCalculator($arr_selected_teams);
+
+	$strength_team_A = $arr_team_strengths[0];
+	$strength_team_B = $arr_team_strengths[1];
+
+	$arr_team_A = $arr_selected_teams[0];
+	$arr_team_B = $arr_selected_teams[1];
+
+	$strength_difference = abs($strength_team_A - $strength_team_B);
+
+	$player_picker_A = $player_picker_B = -1;
+
+	if ($strength_difference <= 1) {
+		$Array = array($arr_team_A, $arr_team_B);
+		$Strength = StrengthCalculator($arr_team_A, $arr_team_B);
 		return $Array;
 	}
-	if ($StrDiff > 0) {
-		for ($i = 0; $i < count($TeamB); $i++) {
-			if ($TeamB[$i]->rank == ($StrDiff + 1)) {
-				$PickB = $i;
+	if ($strength_difference > 0) {
+		for ($i = 0; $i < count($arr_team_B); $i++) {
+			if ($arr_team_B[$i]->rank == ($strength_difference + 1)) {
+				$player_picker_B = $i;
 				break;
 			}
 		}
-		for ($i = 0; $i < count($TeamA); $i++) {
-			if ($TeamA[$i]->rank == ($StrDiff + 2)) {
-				$PickA = $i;
+		for ($i = 0; $i < count($arr_team_A); $i++) {
+			if ($arr_team_A[$i]->rank == ($strength_difference + 2)) {
+				$player_picker_A = $i;
 				break;
 			}
 		}
 
-		if ($PickA >= 0 && $PickB >= 0) {
-			echo $TeamB[$PickB]->name . " = " . $TeamA[$PickA]->name . "<br>";
-			$X = $TeamA[$PickA];
-			$TeamA[$PickA] = $TeamB[$PickB];
-			$TeamB[$PickB] = $X;
+		if ($player_picker_A >= 0 && $player_picker_A >= 0) {
+
+			$X = $arr_team_A[$player_picker_A];
+			$arr_team_A[$player_picker_A] = $arr_team_B[$player_picker_B];
+			$arr_team_B[$player_picker_B] = $X;
 		}
 	} else {
-		for ($i = 0; $i < count($TeamB); $i++) {
-			if ($TeamB[$i]->rank == ($StrDiff + 2)) {
-				$PickB = $i;
+		for ($i = 0; $i < count($arr_team_B); $i++) {
+			if ($arr_team_B[$i]->rank == ($strength_difference + 2)) {
+				$player_picker_B = $i;
 				break;
 			}
 		}
-		for ($i = 0; $i < count($TeamA); $i++) {
-			if ($TeamA[$i]->rank == ($StrDiff + 1)) {
-				$PickA = $i;
+		for ($i = 0; $i < count($arr_team_A); $i++) {
+			if ($arr_team_A[$i]->rank == ($strength_difference + 1)) {
+				$player_picker_A = $i;
 				break;
 			}
 		}
 
-		if ($PickA >= 0 && $PickB >= 0) {
-			echo $TeamB[$PickB]->name . " = " . $TeamA[$PickA]->name . "<br>";
-			$X = $TeamB[$PickB];
-			$TeamB[$PickB] = $TeamA[$PickA];
-			$TeamA[$PickA] = $X;
+		if ($player_picker_A >= 0 && $player_picker_B >= 0) {
+			echo $arr_team_B[$player_picker_B]->name . " = " . $arr_team_A[$player_picker_A]->name . "<br>";
+			$X = $arr_team_B[$player_picker_B];
+			$arr_team_B[$player_picker_B] = $arr_team_A[$player_picker_A];
+			$arr_team_A[$player_picker_A] = $X;
 		}
 	}
-	$Array = array($TeamA, $TeamB);
-	//printTeam($Array, "OPTIMIZING");
-	optimize($TeamA, $TeamB, $Strength[0], $Strength[1]);
+	$Array = array($arr_team_A, $arr_team_B);
+	//print_team($Array, "OPTIMIZING");
+	optimize($Array);
 	return $Array;
 
 }
-function StrengthCalculator($TeamA, $TeamB) {
-	$StrenghtA = $StrenghtB = 0;
-	foreach ($TeamA as $player) {
-		$StrenghtA += $player->rank;
-	}
-	foreach ($TeamB as $player) {
-		$StrenghtB += $player->rank;
-	}
-	return array($StrenghtA, $StrenghtB);
-}
-function MakethePool($Players, $present) {
-	$PresentPlayer = array();
-	foreach ($present as $presented) {
-		foreach ($Players as $Player) {
+function StrengthCalculator($arr_teams) {
+	//CALCULATING TEAM STENGTH
 
-			if ($Player->id == $presented) {
-				array_push($PresentPlayer, $Player);
+	$arr_team_A = $arr_teams[0];
+	$arr_team_B = $arr_teams[1];
+
+	$strength_team_A = $strength_team_B = 0;
+
+	foreach ($arr_team_A as $player) {
+		$strength_team_A += $player->rank;
+	}
+
+	foreach ($arr_team_B as $player) {
+		$strength_team_B += $player->rank;
+	}
+
+	return array($strength_team_A, $strength_team_B);
+}
+function MakethePool($arr_players_pool, $arr_now_present_players) {
+
+	//GETTING THE PLAYER OBJECT FROM
+	//THE POOL FOR ONLY THOSE ARE PRESENT
+
+	$arr_present_players = array();
+	foreach ($arr_now_present_players as $now_present_player) {
+		foreach ($arr_players_pool as $player) {
+			if ($player->id == $now_present_player) {
+				array_push($arr_present_players, $player);
 			}
 		}
 	}
 
-	return $PresentPlayer;
+	return $arr_present_players;
 }
-function printTeam($Arr, $Title = "") {
-
-	$Strength = StrengthCalculator($Arr[0], $Arr[1]);
-	$Str1 = $Str2 = "<div class='row' class='singletable'><div class='col-xs-6'>";
-	foreach ($Arr[0] as $SelectedPlayer) {
-		$Str1 .= " <div class='row'><div class='col-xs-12'>" . $SelectedPlayer->name . "</div></div>";
+function print_team($arr_current_teams, $Title = "") {
+	$arr_team_strength = StrengthCalculator($arr_current_teams);
+	$Str1 = $Str2 = "<table border=0>";
+	foreach ($arr_current_teams[0] as $selected_player) {
+		$Str1 .= "<tr><td>" . $selected_player->name . "</td></tr>";
 	}
-	$Str1 .= "<div class='row'><div class='col-xs-12'>" . $Strength[0] . "</div></div></div>";
-	foreach ($Arr[1] as $SelectedPlayer) {
-		$Str2 .= " <div class='row'><div class='col-xs-12'>" . $SelectedPlayer->name . "</div></div>";
-		//$Str2 .= "<tr><td>" . $SelectedPlayer->name . "[" . $SelectedPlayer->rank . "]" . "</td></tr>";
-	}
-	$Str2 .= "<div class='row'><div class='col-xs-12'>" . $Strength[1] . "</div></div></div>";
+	$Str1 .= "<tr><td style='border-top:1px solid red'>" . $arr_team_strength[0] . "</td></tr></table>";
+	foreach ($arr_current_teams[1] as $selected_player) {
+		$Str2 .= "<tr><td>" . $selected_player->name . "</td></tr>";
 
-	/*$Str = "<table border=1>
+	}
+	$Str2 .= "<tr><td style='border-top:1px solid red'>" . $arr_team_strength[1] . "</td></tr></table>";
+
+	$Str = "<table border=1>
 			<tr><th colspan=2>" . $Title . "</th></tr>
 			<tr>
 				<td>" . $Str1 . "</td>
 		  		<td>" . $Str2 . "</td>
 		  	</tr>
 		  	</table>";
-*/
-	$StrTables = "<div class='container'>
-    <div class='row'>
-        <div class='col-xs-6'>" . $Str1 . "</div>
-        <div class='col-xs-6'>" . $Str2 . "</div>
-    </div>
-</div>";
-	echo $StrTables;
-
 	echo $Str;
 }
 function cmp($a, $b) {
+	//Comparison function for USORT
 	if ($a->rank == $b->rank) {
 		return 0;
 	}
