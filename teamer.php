@@ -19,14 +19,10 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-$arr_player_pool = json_decode('[
-{"id":1,"rank":5,"name":"AJ"},{"id":2,"rank":4,"name":"ROHITH"},{"id":3,"rank":4,"name":"TANZIL"},
-{"id":4,"rank":6,"name":"JUDO"},{"id":5,"rank":5,"name":"ALI"},{"id":6,"rank":5,"name":"KHATHAL"},
-{"id":7,"rank":5,"name":"ARUN"},{"id":8,"rank":3,"name":"SIJO"},{"id":9,"rank":5,"name":"NARESH"},
-{"id":10,"rank":3,"name":"SHASHANK"},{"id":11,"rank":4,"name":"ABHILASH"},{"id":12,"rank":4,"name":"SID"},
-{"id":13,"rank":2,"name":"DANESH"},{"id":14,"rank":4,"name":"SUBODH"},{"id":15,"rank":2,"name":"SUBBU"},
-{"id":16,"rank":3,"name":"UMESH"},{"id":17,"rank":3,"name":"JAICO"},{"id":18,"rank":2,"name":"CHIRANJEEVI"},
-{"id":19,"rank":3,"name":"RAVI"},{"id":20,"rank":2,"name":"PRADEEP"}]');
+$fp = fopen('player.json', 'r') or die("Unable to open file!");
+$filecontent = fread($fp, filesize('player.json'));
+fclose($fp);
+$arr_player_pool = json_decode($filecontent);
 
 $Str = "<form action='" . $_SERVER['PHP_SELF'] . "' method='post'><table><tr>";
 $k = 0;
@@ -37,13 +33,16 @@ foreach ($arr_player_pool as $players) {
 	$Str .= "<td><input type='checkbox' name=play[] value='" . $players->id . "'>" . $players->name . "</td>";
 	$k++;
 }
-$Str .= "</tr><tr><td><input type='submit' name='btnsubmit' value='generate'></td></tr></table></form>";
+$Str .= "</tr><tr><td><input type='submit' name='btnsubmit' value='Generate'></td></tr></table></form>";
 
 echo $Str;
 
 if (isset($_POST['btnsubmit'])) {
 
 	$arr_selected_players = MakethePool($arr_player_pool, $_POST['play']);
+	if (count($arr_selected_players) < 6) {
+		echo "Not enough player, You can play <b>snake and ladder</b> instead";die();
+	}
 	$arr_selected_teams = array(array(), array());
 	$arr_selected_team_strength = array(0, 0);
 	$shifter = 0;
@@ -63,6 +62,7 @@ if (isset($_POST['btnsubmit'])) {
 	if (count($arr_selected_players) % 2 == 1) {
 		array_push($arr_selected_teams[1], $arr_selected_teams[0][count($arr_selected_teams[0]) - 1]);
 		unset($arr_selected_teams[0][count($arr_selected_teams[0]) - 1]);
+		print_team($arr_selected_teams, "Adjusting");
 	}
 
 	$arr_selected_team_strength = StrengthCalculator($arr_selected_teams);
@@ -71,16 +71,17 @@ if (isset($_POST['btnsubmit'])) {
 		print_team($arr_selected_teams, "Optimized");
 	} else {
 
-		print_team($arr_selected_teams, "Adjusting");
-		optimize($arr_selected_teams);
+		$arr_selected_teams = optimize($arr_selected_teams, 0);
 		print_team($arr_selected_teams, "Optimized");
 	}
 }
 
-function optimize($arr_selected_teams) {
+function optimize($arr_selected_teams, $cnt) {
 
 	$arr_team_strengths = StrengthCalculator($arr_selected_teams);
-
+	if ($arr_team_strengths[0] == $arr_team_strengths[1]) {
+		return $arr_selected_teams;
+	}
 	$strength_team_A = $arr_team_strengths[0];
 	$strength_team_B = $arr_team_strengths[1];
 
@@ -93,7 +94,6 @@ function optimize($arr_selected_teams) {
 
 	if ($strength_difference <= 1) {
 		$Array = array($arr_team_A, $arr_team_B);
-		$Strength = StrengthCalculator($arr_team_A, $arr_team_B);
 		return $Array;
 	}
 	if ($strength_difference > 0) {
@@ -110,7 +110,7 @@ function optimize($arr_selected_teams) {
 			}
 		}
 
-		if ($player_picker_A >= 0 && $player_picker_A >= 0) {
+		if ($player_picker_A >= 0 && $player_picker_B >= 0) {
 
 			$X = $arr_team_A[$player_picker_A];
 			$arr_team_A[$player_picker_A] = $arr_team_B[$player_picker_B];
@@ -139,7 +139,14 @@ function optimize($arr_selected_teams) {
 	}
 	$Array = array($arr_team_A, $arr_team_B);
 	//print_team($Array, "OPTIMIZING");
-	optimize($Array);
+	print_team($Array, "Optimizing " . $cnt);
+	$curr_team_strength = StrengthCalculator($Array);
+	if ($cnt >= 3 or ($arr_team_strengths[0] = $curr_team_strength[0] && $arr_team_strengths[1] = $curr_team_strength[1])) {
+		//var_dump(array_intersect($Array, $arr_selected_teams));
+		return $Array;
+	}
+
+	optimize($Array, $cnt + 1);
 	return $Array;
 
 }
@@ -181,10 +188,12 @@ function print_team($arr_current_teams, $Title = "") {
 	$arr_team_strength = StrengthCalculator($arr_current_teams);
 	$Str1 = $Str2 = "<table border=0>";
 	foreach ($arr_current_teams[0] as $selected_player) {
+		//$Str1 .= "<tr><td>" . $selected_player->name . "[" . $selected_player->rank . "]</td></tr>";
 		$Str1 .= "<tr><td>" . $selected_player->name . "</td></tr>";
 	}
 	$Str1 .= "<tr><td style='border-top:1px solid red'>" . $arr_team_strength[0] . "</td></tr></table>";
 	foreach ($arr_current_teams[1] as $selected_player) {
+		//$Str2 .= "<tr><td>" . $selected_player->name . "[" . $selected_player->rank . "]</td></tr>";
 		$Str2 .= "<tr><td>" . $selected_player->name . "</td></tr>";
 
 	}
