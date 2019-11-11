@@ -1,31 +1,26 @@
 import pyautogui 
 import random
 import ctypes
+
+import base64
+
+
+Fun=base64.b64decode('PT09PSBYRVJWRSBJUyBQQVRIRVRJQyA9PT09').decode("utf-8") ;
 user32 = ctypes.windll.user32
 screensize =[user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)]
 print(screensize)
 k=0
 l=0
 pyautogui.FAILSAFE=False
-posx=[]
-posy=[]
-for i in range(10,screensize[0],10):
-	posx.append(i)
-	posx.append(i*-1)
-print (posx)
 
-for j in range(10,screensize[1],10):
-	posy.append(j)
-	posy.append(j*-1)
-print (posy)
 
-while k<200:
+while k<2000:
 	
-	x=int((random.random()*1000)%(len(posx)-2))
-	y=int((random.random()*1000)%(len(posy)-2))
-	print(posx[x],posy[y])
-	pyautogui.drag(posx[x],posy[y],duration=1)
-	
+	x=random.randint(-200,200)
+	y=random.randint(-200,200)
+	print(x,y)
+	pyautogui.dragRel(x,y,duration=0.5)
+	pyautogui.typewrite(Fun)
 	k=k+1
 
 

@@ -1,3 +1,9 @@
 {"player":"11","ballcontrol":"1","Speed":"1","Passing":"1","Trapping":"1","Goalkeeping":"1","btnsubmit":"Save"}
 
 This is a change 
+
+
+parser = argparse.ArgumentParser(description='Push all modified file to the desination directory')
+parser.add_argument('desitination', metavar='d',  help='Destination folder path')
+parser.add_argument('savejson', metavar='j', help='JSON file write')
+parser.add_argument('source', metavar='s',  help='Source folder path')
